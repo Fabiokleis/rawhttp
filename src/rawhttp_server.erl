@@ -112,7 +112,7 @@ Content-Length: ~p
  ++ Body.
 
 rawget("/") ->
-    rawget("index.html");
+    rawget("/index.html");
 rawget("/" ++ Object) -> 
     case filelib:find_file(Object, "views") of
 	{ok, FileName} -> 
