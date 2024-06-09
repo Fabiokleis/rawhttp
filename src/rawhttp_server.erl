@@ -37,51 +37,101 @@ handle_cast(accept, S = #state{socket=ListenSocket}) ->
     rawhttp_sup:start_socket(), %% a new acceptor is born, praise the lord
     {noreply, S#state{socket=AcceptSocket, state=router}}. 
 
-%%  <<"GET / HTTP/1.1\r\nHost: localhost:8123\r\nUser-Agent: curl/8.0.1\r\nAccept: */*\r\n\r\n">>
-%% <<"POST / HTTP/1.1\r\nHost: localhost:8123\r\nUser-Agent: curl/8.0.1\r\nAccept: */*\r\n\r\n">>
+header_date({{Year, Month, Day}, {Hour, Mins, Secs}}) ->
+    MStr = case Month of
+	       1 -> "Jan";
+	       2 -> "Feb";
+	       3 -> "Mar";
+	       4 -> "Apr";
+	       5 -> "May";
+	       6 -> "Jun";
+	       7 -> "Jul";
+	       8 -> "Aug";
+	       9 -> "Sep";
+	       10 -> "Oct";
+	       11 -> "Nov";
+	       12 -> "Dec"
+	   end,
 
-raw_not_found() ->
-    "HTTP/1.1 404 Not Found
-Server: erlang
-Content-Type: text/html; charset=utf-8
+    Wday = case calendar:day_of_the_week(Year, Month, Day) of
+	       1 -> "Sun";
+	2 -> "Mon";
+	3 -> "Tue";
+	4 -> "Wed";
+	5 -> "Thu";
+	6 -> "Fri";
+	7 -> "Sat"
+    end,
+	 
+    io_lib:format("~s, ~p ~s ~p ~p:~p:~p GMT", [Wday, Day, MStr, Year, Hour, Mins, Secs]).
 
-Not Found.\r\n".
+%% PNG  89 50 4E 47 0D 0A 1A 0A 
+%% JPEG FF D8 FF E0
 
-raw_response_ok(Body) ->
-    "HTTP/1.1 200 OK
-Server: erlang
-Content-Type: text/html; charset=utf-8
-" ++ Body.
-
+get_mime_type(<<Bytes:4/binary, _Rest/binary>> = _Bin) ->
+    case Bytes of
+	<<137, 80, 78, 71>> -> "image/png";
+	<<255, 216, 255, 224>> -> "image/jpeg";		      
+	_ -> "text/html; charset=utf-8"
+    end.			   
+    
 get_file(FileName) ->
     {ok, Bin} = file:read_file(FileName),
-    Bin.
+    {get_mime_type(Bin), Bin}.
 
-rawget("/") ->
-    "HTTP/1.1 200 OK
+raw_internal_server_error() ->
+    io_lib:format("HTTP/1.1 500 Internal Server Error
 Server: erlang
+Date: ~s
+Content-Type: text/html; charset=utf-8
+Content-Length: 23
+
+Internal Server Error
+", [header_date(calendar:universal_time())]).
+
+raw_not_found() ->
+    io_lib:format("HTTP/1.1 404 Not Found
+Server: erlang
+Data: ~s
 Content-Type: text/html; charset=utf-8
 
-Hello World!\r\n";
+Not Found.\r\n", [header_date(calendar:universal_time())]).
 
-rawget([_S|Object]) -> 
-    io:format("cwd: ~p~n", [file:get_cwd()]),
+raw_response_ok({Len, LastModified, MimeType, Body}) ->
+    io_lib:format("HTTP/1.1 200 OK
+Server: erlang
+Date: ~s
+Content-Type: ~s
+Last-modified: ~s
+Content-Length: ~p
+
+", [header_date(calendar:universal_time()), 
+    MimeType, 
+    header_date(LastModified), 
+    Len])
+ ++ Body.
+
+rawget("/") ->
+    rawget("index.html");
+rawget("/" ++ Object) -> 
     case filelib:find_file(Object, "views") of
-	{ok, FileName} -> raw_response_ok("\r\n" ++ get_file(FileName));
+	{ok, FileName} -> 
+	    Len = filelib:file_size(FileName),
+	    LastModified = hd(calendar:local_time_to_universal_time_dst(filelib:last_modified(FileName))),
+	    {MimeType, Bin} = get_file(FileName),
+	    raw_response_ok({Len, LastModified,  MimeType, Bin});
 	{error, not_found} -> raw_not_found()
     end.
-       
-router(<<"GET ", RawHeaders/bitstring>>) -> 
-    [Get|Headers] = string:lexemes(bitstring_to_list(RawHeaders), [[$\r, $\n]]),
 
+router(<<"GET ", RawHeaders/bitstring>>) -> 
+    [Get|_Headers] = string:lexemes(bitstring_to_list(RawHeaders), [[$\r, $\n]]),
     [Object|_Http] = string:split(Get, " "),
-    io:format("get ~p headers: ~p~n", [Object, Headers]),    
+    
+    io:format("get ~p~n", [Object]),
 
     rawget(Object);
 
-router(<<"POST ", _Headers/bitstring>>) -> 
-    "cant post";
-router(_) -> "unkown".
+router(_) -> raw_internal_server_error().
 
 handle_info({tcp, Socket, Msg}, S = #state{state=router}) ->
     io:format("http request: ~p~n", [Msg]),
