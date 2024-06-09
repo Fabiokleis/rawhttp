@@ -32,7 +32,7 @@ init(Socket) ->
 handle_call(_E, _From, State) ->
     {noreply, State}.
 
-handle_cast(accept, S = #state{socket=ListenSocket}) ->
+handle_cast(accept, #state{socket=ListenSocket} = S) ->
     {ok, AcceptSocket} = gen_tcp:accept(ListenSocket), %% get received tcp socket
     rawhttp_sup:start_socket(), %% a new acceptor is born, praise the lord
     {noreply, S#state{socket=AcceptSocket, state=router}}. 
@@ -133,7 +133,7 @@ router(<<"GET ", RawHeaders/bitstring>>) ->
 
 router(_) -> raw_internal_server_error().
 
-handle_info({tcp, Socket, Msg}, S = #state{state=router}) ->
+handle_info({tcp, Socket, Msg}, #state{state=router} = S) ->
     io:format("http request: ~p~n", [Msg]),
     send(Socket, router(Msg), S), {stop, normal, S};
 
@@ -144,11 +144,11 @@ handle_info({tcp_closed, _Socket}, S) ->
 code_change(_OldVsn, State, _Extra) ->
     {ok, State}.
 
-terminate(normal, _ = #state{socket=Socket}) ->
+terminate(normal, #state{socket=Socket}) ->
     ok = gen_tcp:close(Socket),
     ok;
 
-terminate(Reason, State = #state{socket=Socket}) ->
+terminate(Reason, #state{socket=Socket} = State) ->
     ok = gen_tcp:close(Socket),
     io:format("~p: terminate reason: ~p~n", [State, Reason]),
     ok.
