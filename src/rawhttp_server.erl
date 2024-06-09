@@ -55,12 +55,12 @@ header_date({{Year, Month, Day}, {Hour, Mins, Secs}}) ->
 
     Wday = case calendar:day_of_the_week(Year, Month, Day) of
 	       1 -> "Sun";
-	2 -> "Mon";
-	3 -> "Tue";
-	4 -> "Wed";
-	5 -> "Thu";
-	6 -> "Fri";
-	7 -> "Sat"
+	       2 -> "Mon";
+	       3 -> "Tue";
+	       4 -> "Wed";
+	       5 -> "Thu";
+	       6 -> "Fri";
+	       7 -> "Sat"
     end,
 	 
     io_lib:format("~s, ~p ~s ~p ~p:~p:~p GMT", [Wday, Day, MStr, Year, Hour, Mins, Secs]).
