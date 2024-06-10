@@ -94,8 +94,10 @@ raw_not_found() ->
 Server: erlang
 Data: ~s
 Content-Type: text/html; charset=utf-8
+Content-Length: 12
 
-Not Found.\r\n", [header_date(calendar:universal_time())]).
+Not Found.
+", [header_date(calendar:universal_time())]).
 
 raw_response_ok({Len, LastModified, MimeType, Body}) ->
     io_lib:format("HTTP/1.1 200 OK
