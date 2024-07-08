@@ -68,11 +68,11 @@ header_date({{Year, Month, Day}, {Hour, Mins, Secs}}) ->
 %% PNG  89 50 4E 47 0D 0A 1A 0A 
 %% JPEG FF D8 FF E0
 
-get_mime_type(<<Bytes:4/binary, _Rest/binary>> = _Bin) ->
+get_mime_type(<<Bytes:8/binary, _Rest/binary>> = _Bin) ->
     case Bytes of
-	<<137, 80, 78, 71>> -> "image/png";
-	<<255, 216, 255, 224>> -> "image/jpeg";		      
-	_ -> "text/html; charset=utf-8"
+	<<16#ff, 16#d8, 16#ff, 16#e0, _R/binary>> -> "image/jpeg";
+	<<16#89, 16#50, 16#4e, 16#47, 16#0d, 16#0a, 16#1a, 16#0a>> -> "image/png";
+	_ -> "text/html; charset=utf-8" %% handle `application/octet-stream`
     end.			   
     
 get_file(FileName) ->
@@ -92,7 +92,7 @@ Internal Server Error
 raw_not_found() ->
     io_lib:format("HTTP/1.1 404 Not Found
 Server: erlang
-Data: ~s
+Date: ~s
 Content-Type: text/html; charset=utf-8
 Content-Length: 12
 
